@@ -26,7 +26,6 @@ export function HistoryScreen() {
     })
   }, [measurementHistory, searchQuery])
 
-  // Group by date
   const groupedHistory = useMemo(() => {
     const groups: { [key: string]: typeof measurementHistory } = {}
     

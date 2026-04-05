@@ -60,13 +60,6 @@ export function RegisterScreen({ onBack, onVerify }: RegisterScreenProps) {
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
 
-      {/* Back Button */}
-      <button
-        onClick={onBack}
-        className="text-sm text-muted-foreground hover:text-foreground transition-colors relative z-10"
-      >
-        Back
-      </button>
 
       <div className="flex-1 flex flex-col items-center justify-center relative z-10 py-6">
         <motion.div

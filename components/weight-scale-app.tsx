@@ -20,7 +20,7 @@ function AppContent() {
   const { isAuthenticated } = useAppContext()
   const [showSplash, setShowSplash] = useState(true)
   const [showPayment, setShowPayment] = useState(false)
-  const [authScreen, setAuthScreen] = useState<AuthScreen>("login")
+  const [authScreen, setAuthScreen] = useState<AuthScreen>("register")
   const [otpEmail, setOtpEmail] = useState("")
   const [activeTab, setActiveTab] = useState("home")
 

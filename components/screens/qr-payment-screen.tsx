@@ -11,8 +11,55 @@ interface QRPaymentScreenProps {
 
 export function QRPaymentScreen({ onPaymentDone }: QRPaymentScreenProps) {
   const [isWaiting, setIsWaiting] = useState(false)
-  const [timeLeft, setTimeLeft] = useState(30)
+  const [timeLeft, setTimeLeft] = useState(45)
+  const [sessionId, setSessionId] = useState("")
 
+  useEffect(() => {
+  const init = async () => {
+    try {
+      const script = document.createElement("script")
+      script.src = "https://checkout.razorpay.com/v1/checkout.js"
+      script.async = true
+
+      await new Promise((resolve, reject) => {
+        script.onload = resolve
+        script.onerror = reject
+        document.body.appendChild(script)
+      })
+
+      console.log("Razorpay loaded")
+
+    } catch (err) {
+      console.error("Razorpay load error:", err)
+    }
+  }
+
+  init()
+}, [])
+
+useEffect(() => {
+  const checkSession = async () => {
+    try {
+      const res = await fetch("https://smaartweigh.onrender.com/api/session/status/WX-001");
+      const data = await res.json();
+
+      if (data.status === "active") {
+        setSessionId(data.sessionId);
+        console.log("Session detected:", data);
+      } else {
+        setSessionId(""); // 🔥 RESET when no session
+        console.log("No active session");
+      }
+
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const interval = setInterval(checkSession, 2000);
+
+  return () => clearInterval(interval);
+}, []);
   useEffect(() => {
     if (isWaiting && timeLeft > 0) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000)
@@ -23,11 +70,83 @@ export function QRPaymentScreen({ onPaymentDone }: QRPaymentScreenProps) {
     }
   }, [isWaiting, timeLeft, onPaymentDone])
 
-  const handlePaymentDone = () => {
-    setIsWaiting(true)
-    setTimeLeft(30)
+  const handlePay = async () => {
+  if (!sessionId) {
+    alert("Session not ready. Try again.")
+    return
   }
 
+  try {
+    // ✅ CREATE ORDER
+    const res = await fetch("https://smaartweigh.onrender.com/api/payment/create-order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        sessionId,
+        amount: 2
+      })
+    })
+
+    const data = await res.json()
+    if (!data.orderId) {
+  alert("Order creation failed")
+  return
+}
+
+    // ✅ CHECK RAZORPAY
+    if (!(window as any).Razorpay) {
+      alert("Razorpay not loaded. Refresh page.")
+      return
+    }
+
+    // ✅ OPEN RAZORPAY
+    const options = {
+      key: "rzp_test_SXMUErOVsOlGSu", // 🔥 your key
+      amount: data.amount,
+      currency: "INR",
+      name: "Smart Weighing",
+      description: "Weight Machine",
+      order_id: data.orderId,
+
+      handler: async function (response: any) {
+        try {
+          const verifyRes = await fetch("https://smaartweigh.onrender.com/api/payment/verify", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              sessionId,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            })
+          })
+
+          const verifyData = await verifyRes.json()
+
+          if (verifyData.status === "success") {
+            setIsWaiting(true)
+            setTimeLeft(45)
+          } else {
+            alert("Payment verification failed")
+          }
+
+        } catch (err) {
+          console.error("Verify error:", err)
+        }
+      }
+    }
+
+    const rzp = new (window as any).Razorpay(options)
+    rzp.open()
+
+  } catch (err) {
+    console.error("Payment error:", err)
+  }
+}
   if (isWaiting) {
     return (
       <motion.div
@@ -88,100 +207,17 @@ export function QRPaymentScreen({ onPaymentDone }: QRPaymentScreenProps) {
           <CardContent className="p-6">
             <div className="bg-white rounded-xl p-4 mx-auto w-fit">
               {/* QR Code SVG */}
-              <svg
-                width="200"
-                height="200"
-                viewBox="0 0 200 200"
-                className="w-48 h-48"
-              >
-                {/* QR Code Pattern - Stylized representation */}
-                <rect x="0" y="0" width="200" height="200" fill="white" />
-                
-                {/* Position Detection Patterns - Top Left */}
-                <rect x="10" y="10" width="50" height="50" fill="#0a0a0f" />
-                <rect x="15" y="15" width="40" height="40" fill="white" />
-                <rect x="22" y="22" width="26" height="26" fill="#0a0a0f" />
-                
-                {/* Position Detection Pattern - Top Right */}
-                <rect x="140" y="10" width="50" height="50" fill="#0a0a0f" />
-                <rect x="145" y="15" width="40" height="40" fill="white" />
-                <rect x="152" y="22" width="26" height="26" fill="#0a0a0f" />
-                
-                {/* Position Detection Pattern - Bottom Left */}
-                <rect x="10" y="140" width="50" height="50" fill="#0a0a0f" />
-                <rect x="15" y="145" width="40" height="40" fill="white" />
-                <rect x="22" y="152" width="26" height="26" fill="#0a0a0f" />
-                
-                {/* Data Modules - Random pattern for visual effect */}
-                <rect x="70" y="10" width="10" height="10" fill="#0a0a0f" />
-                <rect x="90" y="10" width="10" height="10" fill="#0a0a0f" />
-                <rect x="110" y="10" width="10" height="10" fill="#0a0a0f" />
-                <rect x="70" y="25" width="10" height="10" fill="#0a0a0f" />
-                <rect x="100" y="25" width="10" height="10" fill="#0a0a0f" />
-                <rect x="120" y="25" width="10" height="10" fill="#0a0a0f" />
-                <rect x="80" y="40" width="10" height="10" fill="#0a0a0f" />
-                <rect x="110" y="40" width="10" height="10" fill="#0a0a0f" />
-                
-                <rect x="10" y="70" width="10" height="10" fill="#0a0a0f" />
-                <rect x="30" y="70" width="10" height="10" fill="#0a0a0f" />
-                <rect x="50" y="70" width="10" height="10" fill="#0a0a0f" />
-                <rect x="70" y="70" width="10" height="10" fill="#0a0a0f" />
-                <rect x="100" y="70" width="10" height="10" fill="#0a0a0f" />
-                <rect x="120" y="70" width="10" height="10" fill="#0a0a0f" />
-                <rect x="150" y="70" width="10" height="10" fill="#0a0a0f" />
-                <rect x="170" y="70" width="10" height="10" fill="#0a0a0f" />
-                
-                <rect x="20" y="85" width="10" height="10" fill="#0a0a0f" />
-                <rect x="40" y="85" width="10" height="10" fill="#0a0a0f" />
-                <rect x="80" y="85" width="10" height="10" fill="#0a0a0f" />
-                <rect x="110" y="85" width="10" height="10" fill="#0a0a0f" />
-                <rect x="140" y="85" width="10" height="10" fill="#0a0a0f" />
-                <rect x="160" y="85" width="10" height="10" fill="#0a0a0f" />
-                <rect x="180" y="85" width="10" height="10" fill="#0a0a0f" />
-                
-                <rect x="10" y="100" width="10" height="10" fill="#0a0a0f" />
-                <rect x="30" y="100" width="10" height="10" fill="#0a0a0f" />
-                <rect x="50" y="100" width="10" height="10" fill="#0a0a0f" />
-                <rect x="70" y="100" width="10" height="10" fill="#0a0a0f" />
-                <rect x="90" y="100" width="10" height="10" fill="#0a0a0f" />
-                <rect x="110" y="100" width="10" height="10" fill="#0a0a0f" />
-                <rect x="130" y="100" width="10" height="10" fill="#0a0a0f" />
-                <rect x="150" y="100" width="10" height="10" fill="#0a0a0f" />
-                <rect x="170" y="100" width="10" height="10" fill="#0a0a0f" />
-                
-                <rect x="20" y="115" width="10" height="10" fill="#0a0a0f" />
-                <rect x="40" y="115" width="10" height="10" fill="#0a0a0f" />
-                <rect x="80" y="115" width="10" height="10" fill="#0a0a0f" />
-                <rect x="100" y="115" width="10" height="10" fill="#0a0a0f" />
-                <rect x="140" y="115" width="10" height="10" fill="#0a0a0f" />
-                <rect x="180" y="115" width="10" height="10" fill="#0a0a0f" />
-                
-                <rect x="70" y="140" width="10" height="10" fill="#0a0a0f" />
-                <rect x="90" y="140" width="10" height="10" fill="#0a0a0f" />
-                <rect x="110" y="140" width="10" height="10" fill="#0a0a0f" />
-                <rect x="130" y="140" width="10" height="10" fill="#0a0a0f" />
-                <rect x="150" y="150" width="10" height="10" fill="#0a0a0f" />
-                <rect x="170" y="150" width="10" height="10" fill="#0a0a0f" />
-                
-                <rect x="70" y="155" width="10" height="10" fill="#0a0a0f" />
-                <rect x="100" y="155" width="10" height="10" fill="#0a0a0f" />
-                <rect x="120" y="155" width="10" height="10" fill="#0a0a0f" />
-                <rect x="140" y="165" width="10" height="10" fill="#0a0a0f" />
-                <rect x="160" y="165" width="10" height="10" fill="#0a0a0f" />
-                <rect x="180" y="165" width="10" height="10" fill="#0a0a0f" />
-                
-                <rect x="80" y="170" width="10" height="10" fill="#0a0a0f" />
-                <rect x="110" y="170" width="10" height="10" fill="#0a0a0f" />
-                <rect x="130" y="180" width="10" height="10" fill="#0a0a0f" />
-                <rect x="150" y="180" width="10" height="10" fill="#0a0a0f" />
-                <rect x="180" y="180" width="10" height="10" fill="#0a0a0f" />
-              </svg>
+              <img
+  src="/qr.png"
+  alt="Scan QR"
+  className="w-48 h-48"
+/>
             </div>
             
             {/* Amount Display */}
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground mb-1">Amount to Pay</p>
-              <p className="text-3xl font-bold text-primary font-mono">₹25.00</p>
+              <p className="text-3xl font-bold text-primary font-mono">₹2.00</p>
             </div>
           </CardContent>
         </Card>
@@ -189,7 +225,7 @@ export function QRPaymentScreen({ onPaymentDone }: QRPaymentScreenProps) {
         {/* Payment Instructions */}
         <div className="flex items-center justify-center gap-2 mb-6">
           <p className="text-xs text-muted-foreground text-center">
-            Use any UPI app to scan and pay
+            Use any  app to scan 
           </p>
         </div>
 
@@ -200,16 +236,17 @@ export function QRPaymentScreen({ onPaymentDone }: QRPaymentScreenProps) {
           transition={{ delay: 0.3 }}
         >
           <Button
-            className="w-full h-14 text-lg gap-3 bg-primary hover:bg-primary/90 text-primary-foreground"
-            onClick={handlePaymentDone}
-          >
-            Payment Done
-          </Button>
+  className="w-full h-14 text-lg gap-3 bg-primary hover:bg-primary/90 text-primary-foreground"
+  onClick={handlePay}
+  disabled={!sessionId}
+>
+  {sessionId ? "Pay Now" : "Waiting for scan..."}
+</Button>
         </motion.div>
 
         {/* Footer Note */}
         <p className="text-xs text-muted-foreground text-center mt-4">
-          Click the button above after completing payment
+          Click the button above after scanning
         </p>
       </motion.div>
     </motion.div>

@@ -38,28 +38,38 @@ export function QRPaymentScreen({ onPaymentDone }: QRPaymentScreenProps) {
 }, [])
 
 useEffect(() => {
-  const checkSession = async () => {
+  const createSession = async () => {
     try {
-      const res = await fetch("https://smaartweigh.onrender.com/api/session/status/WX-001");
-      const data = await res.json();
+      const params = new URLSearchParams(window.location.search)
+      const machineId = params.get("machineId") || "WX-001"
 
-      if (data.status === "active") {
-        setSessionId(data.sessionId);
-        console.log("Session detected:", data);
+      const res = await fetch(`https://smaartweigh.onrender.com/scan/${machineId}`)
+      
+      // ⚠️ handle text response also (machine busy case)
+      const contentType = res.headers.get("content-type")
+
+      if (contentType && contentType.includes("application/json")) {
+        const data = await res.json()
+
+        if (data.status === "success") {
+          setSessionId(data.sessionId)
+          console.log("Session created:", data.sessionId)
+        } else {
+          alert("Machine busy. Try again.")
+        }
+
       } else {
-        setSessionId(""); // 🔥 RESET when no session
-        console.log("No active session");
+        const text = await res.text()
+        alert(text) // "Machine currently in use"
       }
 
     } catch (err) {
-      console.error(err);
+      console.error("Session creation error:", err)
     }
-  };
+  }
 
-  const interval = setInterval(checkSession, 2000);
-
-  return () => clearInterval(interval);
-}, []);
+  createSession()
+}, [])
   useEffect(() => {
     if (isWaiting && timeLeft > 0) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000)
@@ -196,9 +206,9 @@ useEffect(() => {
       >
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Scan to Pay</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Smart Weighing</h1>
           <p className="text-sm text-muted-foreground">
-            Scan the QR code below to complete your payment
+            Ready to Pay
           </p>
         </div>
 
@@ -209,8 +219,8 @@ useEffect(() => {
               {/* QR Code SVG */}
               <img
   src="/qr.png"
-  alt="Scan QR"
-  className="w-48 h-48"
+  alt="Machine QR (reference only)"
+  className="w-48 h-48 opacity-40 pointer-events-none"
 />
             </div>
             
@@ -225,7 +235,7 @@ useEffect(() => {
         {/* Payment Instructions */}
         <div className="flex items-center justify-center gap-2 mb-6">
           <p className="text-xs text-muted-foreground text-center">
-            Use any  app to scan 
+            Machine connected. Click below to start your session. 
           </p>
         </div>
 
@@ -240,13 +250,13 @@ useEffect(() => {
   onClick={handlePay}
   disabled={!sessionId}
 >
-  {sessionId ? "Pay Now" : "Waiting for scan..."}
+  {sessionId ? "Pay Now" : "Preparing machine..."}
 </Button>
         </motion.div>
 
         {/* Footer Note */}
         <p className="text-xs text-muted-foreground text-center mt-4">
-          Click the button above after scanning
+          Ensure you are standing near the machine before proceeding
         </p>
       </motion.div>
     </motion.div>

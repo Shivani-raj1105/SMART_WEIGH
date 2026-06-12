@@ -2,8 +2,6 @@
 
 A high-integrity, cloud-orchestrated system bridging high-trust financial transactions with low-trust edge hardware. This project demonstrates a solution to the "Physical Access Bottleneck"—ensuring physical hardware actuation is a deterministic result of a verified backend state.
 
-**Live Demo:** [smart-weigh-integration-az4g.vercel.app](https://smart-weigh-intergration-az4g.vercel.app/)
-
 ---
 
 ## System Architecture & Philosophy
